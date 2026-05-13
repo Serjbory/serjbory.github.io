@@ -4,8 +4,8 @@ email: ""
 description: >-
   Personal blog by Sergey Borisov
 baseurl: ""
-url: "https://serjborisov.github.io"
-github_username: serjborisov
+url: "https://serjbory.github.io"
+github_username: serjbory
 
 show_excerpts: true
 permalink: /:year/:month/:day/:title/
