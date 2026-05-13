@@ -1,0 +1,21 @@
+title: Serj.md
+author: Sergey Borisov
+email: ""
+description: >-
+  Personal blog by Sergey Borisov
+baseurl: ""
+url: "https://serjborisov.github.io"
+github_username: serjborisov
+
+show_excerpts: true
+permalink: /:year/:month/:day/:title/
+
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+highlighter: rouge
