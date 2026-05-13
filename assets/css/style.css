@@ -101,7 +101,7 @@ a:hover {
   text-decoration: none;
 }
 .site-title::before { content: '> '; color: var(--primary); }
-.site-title::after  { content: '_'; animation: blink 1s step-end infinite; color: var(--text-dim); }
+.site-title::after  { content: '_'; animation: blink 1s step-end infinite; color: var(--text); }
 .site-title:hover   { color: var(--primary); text-decoration: none; }
 
 .site-nav { display: flex; gap: 0.5rem; }
@@ -109,7 +109,7 @@ a:hover {
 .site-nav a {
   font-family: 'Press Start 2P', monospace;
   font-size: 0.5rem;
-  color: var(--text-dim);
+  color: var(--text);
   padding: 0.5rem 0.8rem;
   border: 2px solid var(--border);
   text-decoration: none;
