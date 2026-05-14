@@ -3,22 +3,21 @@ layout: default
 title: Blog
 ---
 
-<h1 class="page-heading">Latest Posts</h1>
+<div class="term-cmd-header">
+  <span class="term-prompt-inline">
+    <span class="prompt-user">serj</span><span class="prompt-at">@</span><span class="prompt-host">blog</span><span class="prompt-colon">:</span><span class="prompt-dir">~</span><span class="prompt-dollar">$</span>
+  </span>
+  <span class="cmd-text">/ls <span class="cmd-flag">-l</span></span>
+</div>
 
+<div class="ls-header">total {{ site.posts | size }}</div>
 <ul class="post-list">
   {% for post in site.posts %}
-  <li class="post-card">
-    <div class="post-meta">
-      <time datetime="{{ post.date | date_to_xmlschema }}">{{ post.date | date: "%B %-d, %Y" }}</time>
-      {% if post.tags %}
-        {% for tag in post.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
-      {% endif %}
-    </div>
-    <a class="post-link" href="{{ post.url | relative_url }}">{{ post.title }}</a>
-    {% if site.show_excerpts %}
-      <p class="post-excerpt">{{ post.excerpt | strip_html | truncatewords: 35 }}</p>
-    {% endif %}
-    <a class="read-more" href="{{ post.url | relative_url }}">Read more →</a>
+  <li class="ls-row">
+    <span class="ls-perms">-rw-r--r--</span>
+    <span class="ls-date">{{ post.date | date: "%Y-%m-%d" }}</span>
+    <a class="ls-name" href="{{ post.url | relative_url }}">{{ post.path | remove: '_posts/' }}</a>
+    <span class="ls-title">"{{ post.title }}"</span>
   </li>
   {% endfor %}
 </ul>

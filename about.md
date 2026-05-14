@@ -4,19 +4,29 @@ title: About
 permalink: /about/
 ---
 
-# Sergey Borisov
+## NAME
 
-Software engineer, builder, and occasional writer.
+Sergey Borisov — software engineer, builder, writer.
 
-This is **Serj.md** — my corner of the internet where I write about the things I'm learning, building, and thinking about. Expect posts on code, software engineering, and whatever else catches my attention.
+## SYNOPSIS
 
-## What you'll find here
+`serj [--build] [--write] [--think]`
+
+## DESCRIPTION
+
+Software engineer with a habit of building things and writing about them. **Serj.md** is my personal blog — a place to think out loud about code, engineering, and whatever else catches my attention.
+
+## TOPICS
 
 - Technical deep-dives and tutorials
-- Thoughts on software engineering and building products
+- Software engineering and building products
 - Project updates and lessons learned
 - Short notes and observations
 
-## Get in touch
+## CONTACT
 
-The best way to find me is on [GitHub](https://github.com/serjborisov).
+github: [serjbory](https://github.com/serjbory)
+
+## SEE ALSO
+
+[/ls](/) — list all posts

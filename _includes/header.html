@@ -1,9 +1,19 @@
 <header class="site-header">
-  <div class="container">
-    <a class="site-title" href="{{ '/' | relative_url }}">{{ site.title }}</a>
+  <div class="term-titlebar">
+    <div class="term-dots">
+      <span class="term-dot term-dot-red"></span>
+      <span class="term-dot term-dot-yellow"></span>
+      <span class="term-dot term-dot-green"></span>
+    </div>
+    <span class="term-title">{{ site.author }} — {{ site.title }}</span>
+  </div>
+  <div class="term-nav container">
+    <span class="term-prompt">
+      <span class="prompt-user">serj</span><span class="prompt-at">@</span><span class="prompt-host">blog</span><span class="prompt-colon">:</span><span class="prompt-dir">~</span><span class="prompt-dollar">$</span>
+    </span>
     <nav class="site-nav" aria-label="Main navigation">
-      <a href="{{ '/' | relative_url }}">Blog</a>
-      <a href="{{ '/about' | relative_url }}">About</a>
+      <a href="{{ '/' | relative_url }}" class="cmd-link">/ls</a>
+      <a href="{{ '/about' | relative_url }}" class="cmd-link">/man</a>
     </nav>
   </div>
 </header>
