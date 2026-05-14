@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insight Agent: From Natural Language to Data Insights</title>
+  <style>
+    :root {
+      --accent: #0f6cbd;
+      --accent-light: #e8f3fc;
+      --muted: #6b7280;
+      --border: #d1d5db;
+      --warn: #fef3c7;
+      --warn-border: #f59e0b;
+      --green: #d1fae5;
+      --green-border: #10b981;
+      --red: #fee2e2;
+      --red-border: #ef4444;
+      --code-bg: #f4f6f9;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+      color: #111827;
+      line-height: 1.7;
+    }
+    h1 { font-size: 2rem; color: #0c2340; border-bottom: 3px solid var(--accent); padding-bottom: .5rem; }
+    h2 { font-size: 1.4rem; color: #0f6cbd; margin-top: 2.5rem; }
+    h3 { font-size: 1.1rem; color: #1e3a5f; margin-top: 1.5rem; }
+    h4 { font-size: 1rem; color: #374151; margin-top: 1.2rem; font-style: italic; }
+
+    .meta { color: var(--muted); font-size: .9rem; margin-bottom: 2rem; }
+    .tag { display: inline-block; background: var(--accent-light); color: var(--accent);
+           font-size:.75rem; padding: .2rem .5rem; border-radius: 99px; margin:.15rem; font-weight:600; }
+
+    .note-box { border-left: 4px solid var(--accent); background: var(--accent-light); padding: .8rem 1.2rem; margin: 1rem 0; border-radius: 0 6px 6px 0; }
+    .warn-box  { border-left: 4px solid var(--warn-border); background: var(--warn); padding: .8rem 1.2rem; margin: 1rem 0; border-radius: 0 6px 6px 0; }
+    .ok-box    { border-left: 4px solid var(--green-border); background: var(--green); padding: .8rem 1.2rem; margin: 1rem 0; border-radius: 0 6px 6px 0; }
+    .bad-box   { border-left: 4px solid var(--red-border); background: var(--red); padding: .8rem 1.2rem; margin: 1rem 0; border-radius: 0 6px 6px 0; }
+
+    code { background: var(--code-bg); padding: .1rem .35rem; border-radius: 4px; font-size: .88em; font-family: "SF Mono", Consolas, monospace; }
+    pre  { background: var(--code-bg); padding: 1rem 1.2rem; border-radius: 8px; overflow-x: auto; font-size: .85em; line-height: 1.5; border: 1px solid var(--border); }
+    pre code { background: none; padding: 0; }
+
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .9rem; }
+    th { background: var(--accent); color: #fff; padding: .5rem .8rem; text-align: left; }
+    td { padding: .45rem .8rem; border-bottom: 1px solid var(--border); }
+    tr:nth-child(even) td { background: #f9fafb; }
+
+    .flow {
+      display: flex; gap: .5rem; align-items: center; flex-wrap: wrap;
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1rem 1.5rem; margin: 1rem 0; font-size: .9rem;
+    }
+    .flow-step {
+      background: var(--accent); color: #fff; padding: .35rem .9rem;
+      border-radius: 6px; font-weight: 600; white-space: nowrap;
+    }
+    .flow-arrow { color: var(--muted); font-size: 1.2rem; }
+
+    details summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+    details { margin: .5rem 0; padding: .5rem; border: 1px solid var(--border); border-radius: 6px; }
+    ul { padding-left: 1.4rem; }
+    li { margin: .3rem 0; }
+  </style>
+</head>
+<body>
+
+<h1>Insight Agent: From Natural Language to Data Insights</h1>
+<p class="meta">
+  May 2026 &nbsp;·&nbsp;
+  <span class="tag">LLM</span>
+  <span class="tag">Agents</span>
+  <span class="tag">Plan+Execute</span>
+  <span class="tag">MCP</span>
+  <span class="tag">SQL Generation</span>
+  <span class="tag">LangGraph</span>
+  <span class="tag">Gemini</span>
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Table of Contents</h2>
+<ol>
+  <li><a href="#intro">Introduction — What Problem Are We Solving?</a></li>
+  <li><a href="#domain">Domain Context — Analytics for FMCG/Retail</a></li>
+  <li><a href="#architecture">System Architecture — Multi-Agent Design</a></li>
+  <li><a href="#insight-agent">The Insight Agent — Core Idea</a></li>
+  <li><a href="#evolution">Evolution of the Agent — Three Approaches</a></li>
+  <li><a href="#plan-execute">Plan+Execute Deep-Dive</a></li>
+  <li><a href="#shortcut-tools">Shortcut Tools — Encoding Domain Knowledge</a></li>
+  <li><a href="#guidance">Analysis-Specific Guidance from MLflow Prompts</a></li>
+  <li><a href="#challenges">Challenges &amp; Solutions</a></li>
+  <li><a href="#evaluation">Evaluation Framework</a></li>
+  <li><a href="#results">Results &amp; Lessons Learned</a></li>
+  <li><a href="#future">Future Work</a></li>
+</ol>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="intro">1. Introduction — What Problem Are We Solving?</h2>
+
+<p>Analysts spend hours drilling through dashboards. They want to type "which of my SKUs drove the OOS spike last week?" and get an answer — not click through 5 filters.</p>
+
+<h3>Key points</h3>
+<ul>
+  <li>We built an AI assistant embedded inside a retail analytics platform for FMCG / CPG companies.</li>
+  <li>Users are category managers, trade marketers — domain experts, not SQL writers.</li>
+  <li>The platform already computes analyses (OOS, product title compliance, …) and exposes them as
+      pre-aggregated datasets scoped to a specific user's filters (client, country, retailer…).</li>
+  <li>The challenge: bridge natural language questions to those datasets — which are dynamic, user-scoped,
+      and multi-table — without shipping the whole schema to the LLM every time.</li>
+  <li>Unlike typical NL-to-SQL tasks on static databases, our tables are <em>virtual</em>:
+      they only exist for a given analysis context and are served via MCP tools.</li>
+</ul>
+
+<div class="warn-box">
+  <strong>Differentiator vs. generic NL-to-SQL:</strong> We don't query a fixed database — we
+  query ephemeral analysis payloads through MCP tools. The "schema" is discovered at runtime.
+  This shapes every design decision.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="domain">2. Domain Context</h2>
+
+<h3>Key points</h3>
+<ul>
+  <li>Two main analysis types in scope (at time of writing):
+    <ul>
+      <li><strong>OOS (Out-of-Stock) analysis</strong>: metrics like OOS rate, variation, competitor index, revenue impact.</li>
+      <li><strong>Product Title Compliance</strong>: compliance_rate, health_score, fail-to-pass transitions.</li>
+    </ul>
+  </li>
+  <li>Each analysis is scoped to a user, a retailer scope, a time window — not a global table.</li>
+  <li>Multiple tabs per page → multiple analysis contexts. We introduced <code>AnalysisEntry</code>
+      to carry <code>{analysis_type, tab, analysis_id}</code> so the agent can route correctly.</li>
+  <li>Analysis types have distinct metric vocabularies (e.g. "index" means something different on OOS vs. Product Title)
+      → the same question requires different interpretation depending on context.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="architecture">3. System Architecture — Multi-Agent Design</h2>
+
+<h3>Overall flow</h3>
+<div class="flow">
+  <span class="flow-step">User Message</span><span class="flow-arrow">→</span>
+  <span class="flow-step">Supervisor Agent</span><span class="flow-arrow">→</span>
+  <span class="flow-step">Route decision</span><span class="flow-arrow">→</span>
+  <span class="flow-step">RAG / Alerts / Backend / Insight</span><span class="flow-arrow">→</span>
+  <span class="flow-step">Verification</span><span class="flow-arrow">→</span>
+  <span class="flow-step">Response</span>
+</div>
+
+<h3>Agent roles</h3>
+<table>
+  <thead><tr><th>Agent</th><th>Responsibility</th><th>Model</th></tr></thead>
+  <tbody>
+    <tr><td>Supervisor</td><td>Intent routing, conversation state, approval flows</td><td>Gemini 3 Flash</td></tr>
+    <tr><td>RAG</td><td>Documentation / knowledge base Q&amp;A</td><td>Gemini 3 Flash</td></tr>
+    <tr><td>Alerts</td><td>Threshold-based alert management via MCP</td><td>Gemini 3 Flash</td></tr>
+    <tr><td>Backend</td><td>Structured data API calls (filters, entities…)</td><td>Gemini 3 Flash</td></tr>
+    <tr><td><strong>Insight</strong></td><td><strong>NL → SQL → analysis results synthesis</strong></td><td><strong>Gemini 3.1 Pro (planner/synthesizer) + Flash (executor)</strong></td></tr>
+    <tr><td>Verification</td><td>Cross-checks answers, validates entity IDs</td><td>Gemini 3 Pro Preview</td></tr>
+  </tbody>
+</table>
+
+<div class="note-box">
+  <strong>Design choice:</strong> Supervisor is cheap (Flash) — it only routes. Insight is expensive
+  where it matters (planning + synthesis) and cheap where it doesn't (SQL execution).
+  Verification sits outside the hot path and scores in MLflow traces.
+</div>
+
+<h3>MCP as the integration layer</h3>
+<ul>
+  <li>All data access goes through MCP (Model Context Protocol) tools — not direct DB connections.</li>
+  <li>MCP client is cached per user; per-request headers (auth, session, agent type)
+      are injected at call time via an interceptor — no token leakage across sessions.</li>
+  <li>This decouples the chatbot backend from data infrastructure — the MCP server owns the SQL,
+      the agent owns the reasoning.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="insight-agent">4. The Insight Agent — Core Idea</h2>
+
+<h3>What it does</h3>
+<ul>
+  <li>Takes a natural language question + a set of <code>AnalysisEntry</code> objects (analysis_type + analysis_id).</li>
+  <li>Discovers available tables for that analysis at runtime.</li>
+  <li>Plans a multi-step query strategy.</li>
+  <li>Executes SQL (or pre-built shortcut tools) for each step, in parallel.</li>
+  <li>Synthesizes a coherent, domain-aware narrative answer.</li>
+</ul>
+
+<h3>Why not a simple ReAct loop?</h3>
+<div class="warn-box">
+  <strong>Problem with pure ReAct (tool-calling loop):</strong>
+  <ul>
+    <li>Unpredictable number of tool calls — latency spikes.</li>
+    <li>LLM may call <code>get_table_details</code> for every table (20+) before writing SQL — slow and costly.</li>
+    <li>Hard to enforce analytical best practices (always analyze multiple dimensions, default top_n=5…).</li>
+    <li>Difficult to parallelize steps.</li>
+    <li>Prior stateful implementation (with SummarizationMiddleware, Postgres checkpointer) added complexity
+        that wasn't needed for a stateless sub-agent called by the supervisor.</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="evolution">5. Evolution of the Agent — Three Approaches</h2>
+
+<h3>Approach 1 — Basic LLM Tool-Calling Agent (v0)</h3>
+<ul>
+  <li>Insight agent as a standard LangGraph ReAct agent with MCP tools.</li>
+  <li>Had access to: <code>get_available_tables</code>, <code>get_table_details</code>, <code>query_tables</code>.</li>
+  <li>Stateful: used <code>AsyncPostgresSaver</code> checkpointer + <code>SummarizationMiddleware</code>.</li>
+  <li>Model: injected system prompt with analysis context and user context.</li>
+</ul>
+
+<div class="bad-box">
+  <strong>Problems observed:</strong>
+  <ul>
+    <li>Called <code>get_table_details</code> on all tables → sometimes 20 API calls before any SQL.</li>
+    <li>Inconsistent analytical depth: sometimes analyzed 1 dimension, sometimes 5.</li>
+    <li>No structure to the plan — hard to parallelize or evaluate step-by-step.</li>
+    <li>Session state added overhead for a sub-agent that doesn't need it (supervisor owns the conversation state).</li>
+    <li>System prompt alone was not enough to reliably instill domain-specific analytical patterns.</li>
+  </ul>
+</div>
+
+<h3>Approach 2 — Plan+Execute with StateGraph (v1)</h3>
+<ul>
+  <li>Replaced the ReAct loop with a deterministic 5-node <code>StateGraph</code> (LangGraph).</li>
+  <li>Separation of concerns: discovery is deterministic, planning is expensive LLM, execution is cheap LLM.</li>
+</ul>
+
+<div class="flow">
+  <span class="flow-step">discover_tables</span><span class="flow-arrow">→</span>
+  <span class="flow-step">plan</span><span class="flow-arrow">→</span>
+  <span class="flow-step">discover_details</span><span class="flow-arrow">→</span>
+  <span class="flow-step">execute</span><span class="flow-arrow">→</span>
+  <span class="flow-step">synthesize</span>
+</div>
+
+<ul>
+  <li><strong>discover_tables</strong>: One deterministic MCP call → lightweight catalog
+      <code>[{table_name, description}]</code>. No LLM involved.</li>
+  <li><strong>plan</strong>: Expensive LLM (Pro) produces <code>ExecutionPlan</code> — structured output
+      with list of <code>PlanStep</code> objects. Each step specifies tables, expected output, reasoning.</li>
+  <li><strong>discover_details</strong>: Fetch full column schemas only for tables the plan selected.
+      Parallel, capped at 3 concurrent calls.</li>
+  <li><strong>execute</strong>: Cheap LLM (Flash) generates SQL per step; steps run in parallel
+      (semaphore: max 3 concurrent).</li>
+  <li><strong>synthesize</strong>: Expensive LLM (Pro) turns execution results into a narrative answer
+      with domain-aware framing.</li>
+</ul>
+
+<div class="ok-box">
+  <strong>Gains:</strong> Predictable number of table-discovery calls. Parallelism at the right points.
+  Structured plan enables evaluation of individual steps. Agent is now stateless (no checkpointer needed).
+</div>
+
+<h3>Approach 3 — Plan+Execute + Shortcut Tools (v2, current)</h3>
+<ul>
+  <li>Identified recurring SQL patterns that the LLM kept re-generating with slight variations.</li>
+  <li>Extracted them into pre-built <strong>shortcut tools</strong> — Python code wrapping correct SQL,
+      filters, sort orders and limit semantics.</li>
+  <li>Planner LLM now sees the shortcut tool catalog alongside raw tables.
+      It can set <code>tool_name</code> on a step instead of <code>relevant_tables</code>.</li>
+  <li>Executor dispatches to the shortcut tool directly — no SQL generation needed for those steps.</li>
+</ul>
+
+<div class="ok-box">
+  <strong>Gains:</strong> Correct SQL for common patterns (no hallucinated column names).
+  Faster (no SQL generation step). Deterministic output for high-frequency queries.
+  Domain knowledge lives in code, not prompt.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="plan-execute">6. Plan+Execute Deep-Dive</h2>
+
+<figure style="margin:1.5rem 0;text-align:center;">
+  <img src="Insight_agent_plan%26execute.png"
+       alt="Insight Agent Plan+Execute architecture diagram"
+       style="max-width:100%;border:1px solid var(--border);border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.08);">
+  <figcaption style="margin-top:.6rem;font-size:.85rem;color:var(--muted);">
+    Figure 1 — Insight Agent StateGraph: five nodes, two model tiers, external MCP and MLflow integrations.
+  </figcaption>
+</figure>
+
+<h3>Structured output for the plan</h3>
+<pre><code>class PlanStep(BaseModel):
+    tool_name: Optional[str]        # shortcut tool if applicable
+    step_description: str           # "what this step computes"
+    relevant_tables: List[str]      # namespaced table names
+    expected_output: str            # "a single number", "top 5 rows"
+
+class ExecutionPlan(BaseModel):
+    steps: List[PlanStep]
+    reasoning: str                  # why this plan answers the question</code></pre>
+
+<div class="note-box">
+  Using <code>with_structured_output(ExecutionPlan)</code> on Gemini Pro — no JSON parsing hacks.
+  Reliable, deterministic format. The structured plan is also what MLflow traces capture for evaluation.
+</div>
+
+<h3>Lazy table schema discovery</h3>
+<ul>
+  <li><strong>Phase 1 (always):</strong> <code>get_available_tables</code> → catalog of <em>names + descriptions</em>.
+      Typically 10–25 tables. No schemas yet.</li>
+  <li><strong>Phase 2 (after planning):</strong> <code>get_table_details</code> only for tables
+      the plan selected. From 25 → typically 1–5 calls.</li>
+  <li>This dramatically reduces MCP API calls and token usage vs. fetching all schemas upfront.</li>
+</ul>
+
+<h3>Concurrency model</h3>
+<pre><code>semaphore = asyncio.Semaphore(3)  # MAX_CONCURRENT_STEPS
+
+results = await asyncio.gather(
+    *[execute_step(step) for step in plan.steps],
+    return_exceptions=True,
+)
+</code></pre>
+<ul>
+  <li>Steps are independent (each queries different tables) → safe to parallelize.</li>
+  <li>Semaphore prevents overwhelming the MCP server.</li>
+  <li>Table-detail fetching is also parallelized with the same pattern.</li>
+</ul>
+
+<h3>Two-model strategy</h3>
+<table>
+  <thead><tr><th>Node</th><th>Model</th><th>Rationale</th></tr></thead>
+  <tbody>
+    <tr><td>plan</td><td>Gemini 3.1 Pro Preview</td><td>Needs deep understanding of the question and analytical strategy</td></tr>
+    <tr><td>execute</td><td>Gemini 3 Flash (executor)</td><td>Mechanical: given schema + description, write SQL. Fast + cheap.</td></tr>
+    <tr><td>synthesize</td><td>Gemini 3.1 Pro Preview</td><td>Needs domain knowledge to frame the answer correctly</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="shortcut-tools">7. Shortcut Tools — Encoding Domain Knowledge</h2>
+
+<div class="note-box">
+  The LLM kept generating the same SQL patterns — but not always correctly. Column names were
+  sometimes hallucinated, sort orders inverted, limit semantics wrong. The fix: encode the correct
+  SQL as Python tools. The LLM selects which tool to use; humans write the SQL.
+</div>
+
+<h3>Examples</h3>
+<table>
+  <thead><tr><th>Tool</th><th>Analysis type</th><th>What it computes</th></tr></thead>
+  <tbody>
+    <tr><td><code>get_oos_macro_kpis</code></td><td>OOS</td><td>Global OOS rate, variation, competitor average, product count</td></tr>
+    <tr><td><code>get_oos_dimension_ranking</code></td><td>OOS</td><td>Top/bottom N by OOS across retailer/brand/category/subcategory</td></tr>
+    <tr><td><code>get_oos_worst_products</code></td><td>OOS</td><td>Top N products with worst OOS, with product identifiers, brand, subcategory</td></tr>
+    <tr><td><code>get_pt_macro_kpis</code></td><td>Product Title</td><td>Global compliance rate, health score, pass/fail transitions</td></tr>
+    <tr><td><code>get_pt_dimension_ranking</code></td><td>Product Title</td><td>Top/bottom N by compliance across dimensions</td></tr>
+    <tr><td><code>get_pt_worst_products</code></td><td>Product Title</td><td>Least compliant products with retailer vs. client title</td></tr>
+  </tbody>
+</table>
+
+<h3>Analysis-type-scoped visibility</h3>
+<pre><code>def create_insight_tools(query_tool, analysis_type_ids=None):
+    """Return only the tools relevant to the current analysis type(s)."""
+    all_tools = [GetOosMacroKpis(...), GetPtMacroKpis(...), ...]
+    if analysis_type_ids is None:
+        return all_tools
+    return [
+        t for t in all_tools
+        if any(aid in t.metadata["analysis_types"] for aid in analysis_type_ids)
+    ]
+</code></pre>
+<ul>
+  <li>The planner prompt only lists tools relevant to the current analysis type — no cross-contamination.</li>
+  <li>New analysis types get new shortcut tools; existing tools are unaffected.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="guidance">8. Analysis-Specific Guidance from MLflow Prompts</h2>
+
+<h3>The problem</h3>
+<ul>
+  <li>For a generic "overview" question on OOS, the correct behavior is: macro KPIs → retailer breakdown → category → subcategory.
+      On Product Title, the pattern is slightly different. A generic prompt can't know this.</li>
+  <li>Hardcoding patterns in the codebase couples business logic and code.</li>
+</ul>
+
+<h3>The solution: convention-based prompt registry</h3>
+<pre><code># Convention: {assistant}-guidance-{analysis_type}-prompt@{env_tag}
+# Falls back to: {assistant}-guidance-default-prompt@{env_tag}
+
+def _load_analysis_guidance(self, analysis_type: str) -> str:
+    env_tag = settings.insight_guidance_tag   # e.g. "staging" or "prod"
+    try:
+        prompt = self.load_prompt(f"guidance-{analysis_type}", env_tag)
+    except Exception:
+        prompt = self.load_prompt("guidance-default", env_tag)
+    return prompt.to_single_brace_format()
+</code></pre>
+
+<ul>
+  <li>Guidance prompts live in MLflow Prompt Registry — versionable, A/B-testable, no code deploy needed to iterate.</li>
+  <li>Tagged per environment (e.g. <code>staging</code>, <code>prod</code>) so different environments use different versions.</li>
+  <li>Cached in-memory per analysis type for the lifetime of the agent instance.</li>
+  <li>Example guidance includes: which tools to prefer for each question type, metric semantic explanations,
+      default values (top_n=5), competitor comparison patterns.</li>
+</ul>
+
+<div class="ok-box">
+  <strong>Impact:</strong> Product / data teams can tune analytical behavior without touching code.
+  Evaluation scores improved significantly on "overview" and "extreme values" query types after
+  adding analysis-type-specific guidance.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="challenges">9. Challenges &amp; Solutions</h2>
+
+<details>
+  <summary>Challenge 1 — Multi-Tab Analysis IDs</summary>
+  <div style="padding:.5rem 0">
+    <p><strong>Problem:</strong> Dashboard pages have multiple tabs. Each tab generates its own analysis
+    with a different <code>analysis_id</code>. A single query might need data from tabs 1 and 2.</p>
+    <p><strong>Solution:</strong> Introduced <code>AnalysisEntry = {analysis_type, tab, analysis_id}</code>.
+    All MCP calls receive a list of analysis IDs. The supervisor accumulates entries across multiple
+    <code>run_analysis</code> calls. The insight agent passes all IDs to every MCP tool call.
+    Each response carries the full list so the frontend can route results to the correct tab.</p>
+    <pre><code>class AnalysisEntry(BaseModel):
+    analysis_type: str
+    tab: str
+    analysis_id: str</code></pre>
+  </div>
+</details>
+
+<details>
+  <summary>Challenge 2 — Entity Resolution for Context Tools</summary>
+  <div style="padding:.5rem 0">
+    <p><strong>Problem:</strong> Users say "Carrefour", the system needs an internal entity ID.
+    Passing the full entity directory in every prompt is too expensive (tokens). Relying on the LLM
+    to guess IDs is unreliable.</p>
+    <p><strong>Solution:</strong> <code>EntityIndex</code> with fuzzy matching via <code>rapidfuzz</code>:
+    prefix boosting, exact-token bonus, high-confidence threshold. The LLM calls
+    <code>search_entities(query="Carrefour")</code> → gets the correct entity ID back. Falls back to returning
+    all entities when no good match is found, letting the LLM do semantic matching on a small set.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Challenge 3 — Cross-Page Analysis</summary>
+  <div style="padding:.5rem 0">
+    <p><strong>Problem:</strong> Users sometimes ask about a different analysis type than the one they're viewing
+    ("run product titles analysis while I'm on the OOS page").</p>
+    <p><strong>Solution:</strong> Analysis-triggering tools now accept a <code>target_analysis_type</code>
+    parameter. A resolver helper automatically carries over current-page filters to the target context.
+    The sub-agent can then access those filters when building its queries.</p>
+  </div>
+</details>
+
+<details>
+  <summary>Challenge 4 — Stateful vs Stateless Sub-Agent</summary>
+  <div style="padding:.5rem 0">
+    <p><strong>Problem:</strong> Early implementation used <code>AsyncPostgresSaver</code> + <code>SummarizationMiddleware</code>
+    in the insight agent — same as the supervisor. This was unnecessary complexity and caused checkpoint
+    namespace collisions.</p>
+    <p><strong>Solution:</strong> The insight agent is now stateless. Conversation memory lives in the
+    supervisor's checkpoint. The insight agent receives its full context in the request and returns a
+    self-contained result. Much simpler and easier to test.</p>
+  </div>
+</details>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="evaluation">10. Evaluation Framework</h2>
+
+<h3>Setup</h3>
+<ul>
+  <li>Eval queries are stored as JSON files per agent type, organised by analysis domain.</li>
+  <li>Each query has: <code>user_message</code>, <code>expected_trajectory</code> (tool call sequence), <code>expected_answer</code>.</li>
+  <li>Runs are tracked in MLflow with experiment IDs; scores are fetched via a custom reporting script.</li>
+  <li>Evaluation job is CI-triggered (GitHub Actions) for regression detection.</li>
+</ul>
+
+<h3>Metrics tracked</h3>
+<table>
+  <thead><tr><th>Metric</th><th>What it measures</th></tr></thead>
+  <tbody>
+    <tr><td>Trajectory match</td><td>Did the agent call the expected tools in the right order?</td></tr>
+    <tr><td>Answer accuracy</td><td>LLM judge comparing generated answer to expected answer</td></tr>
+    <tr><td>Latency</td><td>End-to-end response time per query</td></tr>
+    <tr><td>Tool call count</td><td>Efficiency — fewer calls = better (for same accuracy)</td></tr>
+  </tbody>
+</table>
+
+<div class="note-box">
+  <strong>Key insight from evaluation:</strong> Trajectory match is a leading indicator. If the agent
+  calls the wrong tables or skips a dimension, the answer will be wrong even if it sounds plausible.
+  Tracking the tool call sequence, not just the final answer, is essential.
+</div>
+
+<h3>Model evolution driven by evals</h3>
+<ul>
+  <li>Upgrading the insight planner to a stronger reasoning model produced meaningful accuracy improvements on complex multi-step questions.</li>
+  <li>Moving the verification agent to per-agent scoring enabled finer-grained regression detection.</li>
+  <li>Shortcut tools adoption tracked via eval: % of steps using a shortcut vs. raw SQL generation.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="results">11. Results &amp; Lessons Learned</h2>
+
+<div class="note-box">
+  Results averaged across <strong>3 independent random seeds</strong>, each running the full eval suite
+  against the same query set.
+  <strong>v0</strong> = ReAct loop baseline;
+  <strong>v1</strong> = Plan+Execute without shortcut tools;
+  <strong>v2</strong> = Plan+Execute + Shortcuts (proposed solution).
+</div>
+
+<h3>Quantitative summary (avg across 3 seeds)</h3>
+<table>
+  <thead><tr><th>Approach</th><th>Trajectory adherence</th><th>Quality score</th><th>Insight completeness</th><th>Insight correctness</th><th>Avg latency</th><th>Avg MCP calls</th></tr></thead>
+  <tbody>
+    <tr><td>v0 — ReAct loop</td><td>40%</td><td>0.853</td><td>0.743</td><td>0.920</td><td>~71s</td><td>~15–20</td></tr>
+    <tr><td>v1 — Plan+Execute (no shortcuts)</td><td>63%</td><td>0.876</td><td>0.820</td><td>0.880</td><td>~78s</td><td>~5–8</td></tr>
+    <tr><td>v2 — Plan+Execute + Shortcuts</td><td>70%</td><td>0.927</td><td>0.850</td><td>0.930</td><td>~66s</td><td>~3–5</td></tr>
+  </tbody>
+</table>
+
+<div class="ok-box">
+  <strong>Step-by-step deltas:</strong><br>
+  <strong>v0 → v1</strong> (adding Plan+Execute structure): trajectory <strong>+23 pp</strong> (40% → 63%), completeness <strong>+10.3%</strong> (0.743 → 0.820). Latency increased (~71s → ~78s) due to structured multi-step orchestration overhead.<br>
+  <strong>v1 → v2</strong> (adding shortcut tools): trajectory <strong>+7 pp</strong> (63% → 70%), quality <strong>+5.8%</strong> (0.876 → 0.927), completeness <strong>+3.7%</strong> (0.820 → 0.850). Latency drops back to ~66s — shortcuts skip SQL generation for common patterns.
+</div>
+
+<h3>Per-seed breakdown</h3>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin:1rem 0;">
+
+  <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:.85rem;">
+    <div style="background:var(--accent);color:#fff;padding:.4rem .8rem;font-weight:600;">Seed A</div>
+    <table style="margin:0;font-size:.82rem;">
+      <thead><tr><th></th><th>Trajectory</th><th>Quality</th><th>Compl.</th><th>Latency</th></tr></thead>
+      <tbody>
+        <tr><td style="font-weight:600;color:#1e6f3e;">v0</td><td>50%</td><td>0.897</td><td>0.78</td><td>n/a</td></tr>
+        <tr><td style="font-weight:600;color:#b45309;">v1</td><td>70%</td><td>0.866</td><td>0.80</td><td>71.8s</td></tr>
+        <tr><td style="font-weight:600;color:#0f4a8a;">v2</td><td>70%</td><td>0.872</td><td>0.78</td><td>n/a</td></tr>
+        <tr style="background:#f0f4ff;font-weight:600;"><td>Δ v0→v2</td><td style="color:#059669;">+20pp</td><td style="color:#dc2626;">−0.025</td><td>0.00</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:.85rem;">
+    <div style="background:var(--accent);color:#fff;padding:.4rem .8rem;font-weight:600;">Seed B</div>
+    <table style="margin:0;font-size:.82rem;">
+      <thead><tr><th></th><th>Trajectory</th><th>Quality</th><th>Compl.</th><th>Latency</th></tr></thead>
+      <tbody>
+        <tr><td style="font-weight:600;color:#1e6f3e;">v0</td><td>50%</td><td>0.880</td><td>0.76</td><td>63.4s</td></tr>
+        <tr><td style="font-weight:600;color:#b45309;">v1</td><td>60%</td><td>0.852</td><td>0.84</td><td>94.2s</td></tr>
+        <tr><td style="font-weight:600;color:#0f4a8a;">v2</td><td>80%</td><td>0.953</td><td>0.89</td><td>65.6s</td></tr>
+        <tr style="background:#f0f4ff;font-weight:600;"><td>Δ v0→v2</td><td style="color:#059669;">+30pp</td><td style="color:#059669;">+0.073</td><td style="color:#059669;">+0.13</td><td style="color:#dc2626;">+2.2s</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:.85rem;">
+    <div style="background:var(--accent);color:#fff;padding:.4rem .8rem;font-weight:600;">Seed C</div>
+    <table style="margin:0;font-size:.82rem;">
+      <thead><tr><th></th><th>Trajectory</th><th>Quality</th><th>Compl.</th><th>Latency</th></tr></thead>
+      <tbody>
+        <tr><td style="font-weight:600;color:#1e6f3e;">v0</td><td>20%</td><td>0.783</td><td>0.69</td><td>78.2s</td></tr>
+        <tr><td style="font-weight:600;color:#b45309;">v1</td><td>60%</td><td>0.910</td><td>0.82</td><td>67.9s</td></tr>
+        <tr><td style="font-weight:600;color:#0f4a8a;">v2</td><td>60%</td><td>0.957</td><td>0.88</td><td>66.7s</td></tr>
+        <tr style="background:#f0f4ff;font-weight:600;"><td>Δ v0→v2</td><td style="color:#059669;">+40pp</td><td style="color:#059669;">+0.174</td><td style="color:#059669;">+0.19</td><td style="color:#059669;">−11.5s</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<div class="warn-box">
+  <strong>Notable observations:</strong>
+  <ul>
+    <li><strong>v0 variance is high</strong> — trajectory swings 20–50% across seeds vs. 60–80% for v2. The ReAct loop is less deterministic; a different query distribution changes how the model chooses tool call order.</li>
+    <li><strong>Most of the trajectory gain comes from v0→v1</strong> (+23 pp) not v1→v2 (+7 pp) — the structured graph alone constrains tool call order. Shortcuts contribute primarily to quality and latency, not trajectory adherence.</li>
+    <li><strong>v1 latency is the worst</strong> (~78s) — Plan+Execute adds orchestration overhead without the shortcut speed benefit yet. v2 recoups this by skipping SQL generation for common patterns.</li>
+    <li><strong>Insight correctness is similar across all versions</strong> (0.880–0.930) — when the agent retrieves the right data, it phrases answers correctly regardless of approach. The gap is in <em>what</em> data gets retrieved (completeness), not <em>how</em> it is interpreted.</li>
+    <li><strong>Seed C is the hardest</strong> — v0 trajectory drops to 20%, quality to 0.783. The hardest queries stress-test the ReAct loop most, making it the most informative seed for regression detection.</li>
+  </ul>
+</div>
+
+<h3>Key lessons</h3>
+<ol>
+  <li>
+    <strong>Structure beats prompting for multi-step reasoning.</strong>
+    A <code>StateGraph</code> with explicit nodes is easier to debug, evaluate, and optimize than an
+    open-ended ReAct loop. Each node has a single clear job.
+  </li>
+  <li>
+    <strong>Separate planning and execution; use different model sizes.</strong>
+    The planner needs the best reasoning model. The SQL writer just needs a fast model with the schema.
+    This cut latency significantly without accuracy loss.
+  </li>
+  <li>
+    <strong>Encode recurring patterns as code, not prompt.</strong>
+    Shortcut tools are more reliable than asking the LLM to regenerate the same SQL every time.
+    They also make errors obvious (wrong SQL → fix the tool, not the prompt).
+  </li>
+  <li>
+    <strong>Domain guidance decoupled from code is a superpower.</strong>
+    A prompt registry (we used MLflow) lets domain experts tune analytical behavior without code deploys.
+    Version control + environment tagging gives safe promotion paths.
+  </li>
+  <li>
+    <strong>Lazy schema discovery scales better than eager fetching.</strong>
+    Fetching details only for plan-selected tables (vs. all tables) reduced MCP calls by ~75%
+    on typical queries.
+  </li>
+  <li>
+    <strong>The sub-agent should be stateless.</strong>
+    Let the orchestrator (supervisor) own conversation state. Sub-agents are simpler, more testable,
+    and easier to replace. Don't add checkpointers where you don't need them.
+  </li>
+  <li>
+    <strong>Trajectory evaluation catches regressions that answer scoring misses.</strong>
+    An answer can sound correct while querying the wrong dimension. Tracking tool call sequences
+    is as important as evaluating the final response.
+  </li>
+</ol>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="future">12. Future Work</h2>
+
+<ul>
+  <li><strong>More shortcut tools.</strong> Cover more common analytical patterns (trend analysis,
+      revenue impact, segment comparisons) to reduce raw SQL generation to an exception path.</li>
+  <li><strong>Plan validation node.</strong> Add a lightweight LLM check between plan and execution
+      to catch plans that reference non-existent tables or obviously wrong dimensions before any SQL runs.</li>
+  <li><strong>Adaptive parallelism.</strong> Dynamically set the semaphore limit based on measured MCP
+      server capacity, instead of a hardcoded constant.</li>
+  <li><strong>Per-step result caching.</strong> Cache shortcut tool results within a session when the
+      same analysis context + args are requested multiple times.</li>
+  <li><strong>More analysis types.</strong> Extend to additional analytics modules — each with their
+      own shortcut tools and guidance prompts.</li>
+  <li><strong>User feedback loop → prompt tuning.</strong> Feed user satisfaction scores (thumbs up/down)
+      back into prompt iteration cycles via the prompt registry.</li>
+</ul>
+
+</body>
+</html>

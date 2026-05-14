@@ -1,0 +1,177 @@
+/* =========================================
+   Insight Agent post — terminal-style overrides
+   Scoped under .insight-article. Inherits the
+   blog's JetBrains Mono font and CSS variables.
+   ========================================= */
+
+/* h2/h3/h4, p, ul, ol, li, code, pre, img, a are already handled
+   by .post-content in style.css — no overrides needed here. */
+
+/* ── Callout boxes ──────────────────────── */
+.insight-article .note-box,
+.insight-article .warn-box,
+.insight-article .ok-box,
+.insight-article .bad-box {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.6rem 1rem;
+  margin: 1.2rem 0;
+  font-size: 0.875rem;
+}
+
+.insight-article .note-box { border-left: 3px solid var(--blue);   }
+.insight-article .warn-box { border-left: 3px solid var(--yellow); }
+.insight-article .ok-box   { border-left: 3px solid var(--green);  }
+.insight-article .bad-box  { border-left: 3px solid var(--red);    }
+
+.insight-article .note-box::before,
+.insight-article .warn-box::before,
+.insight-article .ok-box::before,
+.insight-article .bad-box::before {
+  display: block;
+  font-weight: 700;
+  font-size: 0.75rem;
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.04em;
+}
+
+.insight-article .note-box::before { content: '# [INFO]'; color: var(--blue);   }
+.insight-article .warn-box::before { content: '# [WARN]'; color: var(--yellow); }
+.insight-article .ok-box::before   { content: '# [OK]';   color: var(--green);  }
+.insight-article .bad-box::before  { content: '# [ERR]';  color: var(--red);    }
+
+/* code/pre: inherited from .post-content (red inline code, $ pre prefix) */
+
+/* ── Tables ─────────────────────────────── */
+.insight-article table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0 1.5rem;
+  font-size: 0.85rem;
+}
+
+.insight-article th {
+  background: var(--bg-subtle);
+  color: var(--text);
+  padding: 0.4rem 0.8rem;
+  text-align: left;
+  border-bottom: 2px solid var(--border);
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.insight-article td {
+  padding: 0.4rem 0.8rem;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: top;
+  color: var(--text);
+}
+
+.insight-article tr:nth-child(even) td {
+  background: var(--bg-subtle);
+}
+
+/* Per-seed merged table */
+.insight-article table.ia-seed-table tr:nth-child(even) td { background: none; }
+.insight-article .ia-seed-sep td  { border-top: 2px solid var(--border); }
+.insight-article .ia-delta-row td { background: var(--bg-subtle); font-weight: 700; border-top: 1px dashed var(--border); }
+
+/* ── Flow diagram ───────────────────────── */
+.insight-article .flow {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.75rem 1.25rem;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+}
+
+.insight-article .flow::before {
+  content: '$';
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-right: 0.1rem;
+}
+
+.insight-article .flow-step {
+  color: var(--cmd-arg);
+  font-weight: 700;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  white-space: nowrap;
+}
+
+.insight-article .flow-step::before { content: '['; color: var(--text-muted); font-weight: 400; }
+.insight-article .flow-step::after  { content: ']'; color: var(--text-muted); font-weight: 400; }
+
+.insight-article .flow-arrow {
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+/* ── Details / Summary ──────────────────── */
+.insight-article details {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-subtle);
+}
+
+.insight-article details summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--cmd-arg);
+  font-size: 0.875rem;
+  list-style: none;
+}
+
+.insight-article details summary::-webkit-details-marker { display: none; }
+
+.insight-article details summary::before {
+  content: '▶ ';
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.insight-article details[open] summary::before {
+  content: '▼ ';
+}
+
+/* ── Figure ─────────────────────────────── */
+.insight-article figure:not(.highlight) {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.insight-article figure.highlight {
+  text-align: left;
+  margin: 0 0 1.5rem;
+}
+
+.insight-article figure img {
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: block;
+  margin: 0 auto;
+}
+
+.insight-article figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.insight-article figcaption::before {
+  content: '# ';
+  color: var(--text-muted);
+}
