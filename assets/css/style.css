@@ -12,16 +12,16 @@
 :root {
   --bg:         #f5f0e8;
   --bg-card:    #faf7f2;
-  --bg-header:  #2e2a3b;
-  --text:       #2e2a3b;
-  --text-dim:   #7a7080;
-  --primary:    #4a8fa4;
-  --secondary:  #b85c6a;
-  --yellow:     #a07828;
-  --green:      #4a7c59;
-  --purple:     #7355a8;
-  --pink:       #b05c80;
-  --border:     #ddd8cc;
+  --bg-header:  #eee8dd;
+  --text:       #1a1520;
+  --text-dim:   #55505e;
+  --primary:    #2e7d8a;
+  --secondary:  #a8485a;
+  --yellow:     #8a6520;
+  --green:      #3a6a48;
+  --purple:     #5e40a0;
+  --pink:       #a04870;
+  --border:     #c5bfb2;
 }
 
 html {
@@ -74,9 +74,8 @@ a:hover {
    ========================================= */
 
 .site-header {
-  background: var(--bg-card);
-  border-bottom: 4px solid var(--primary);
-  box-shadow: 5px 0 0 var(--primary);
+  background: var(--bg-header);
+  border-bottom: 3px solid var(--primary);
   padding: 1.25rem 0;
   position: sticky;
   top: 0;
@@ -111,7 +110,7 @@ a:hover {
   font-size: 0.5rem;
   color: var(--text);
   padding: 0.5rem 0.8rem;
-  border: 2px solid var(--border);
+  border: 2px solid var(--text);
   text-decoration: none;
   transition: all 0.08s;
 }
