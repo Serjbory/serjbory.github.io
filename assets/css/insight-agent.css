@@ -49,6 +49,18 @@
   width: 100%;
   margin: 1rem 0 1.5rem;
   font-size: 0.85rem;
+  /* Fixed to the viewport: table scrolls internally instead of
+     forcing the whole page to scroll horizontally on mobile. */
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Keep columns readable; this min-width is what triggers the
+   internal scrollbar only when the table can't fit the screen. */
+.insight-article th,
+.insight-article td {
+  min-width: 7rem;
 }
 
 .insight-article th {
