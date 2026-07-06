@@ -1,0 +1,514 @@
+---
+layout: post
+title: "Domain Experts in the Harness Loop: All Sides of a Hard Collaboration"
+date: 2026-07-05 00:00:00 +0000
+tags: [LLM, Agents, Evaluation, Harness, MLflow, Human-in-the-Loop, Domain-Experts]
+excerpt: "The agent harness — prompts, tools, memory, eval — is where domain knowledge actually lives. So who puts it there? A look at every side of the expert-in-the-loop collaboration: the expert's, the engineer's, the judge's, and the product's — grounded in a real system and the current research."
+extra_css: /assets/css/insight-agent.css
+---
+
+<div class="insight-article">
+
+<p>There is a comfortable story about AI systems that goes like this: engineers build the machine, the model provides the intelligence, and quality is an emergent property of good code and a big enough model. It is a tidy story. It is also wrong in the one place that matters most — the place where the system decides what "a good answer" even means.</p>
+
+<p>That place is the <strong>harness</strong>. And the harness is where domain experts belong. This post is about what that collaboration actually looks like from every side — including the sides nobody puts on a slide, because they are the awkward ones.</p>
+
+<h2>Table of Contents</h2>
+<ol>
+  <li><a href="#harness">What "the harness" actually is</a></li>
+  <li><a href="#touchpoints">Where expertise enters the system</a></li>
+  <li><a href="#broader">Beyond one system: the fuller map</a></li>
+  <li><a href="#allsides">All sides: four viewpoints on one loop</a></li>
+  <li><a href="#spectrum">The spectrum of involvement</a></li>
+  <li><a href="#failures">Failure modes nobody advertises</a></li>
+  <li><a href="#operating">A durable operating model</a></li>
+  <li><a href="#reading">Where this comes from — further reading</a></li>
+</ol>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="harness">1. What "the harness" actually is</h2>
+
+<p>When people evaluate an "AI agent," they usually measure one number: did it get the task right? But an agent is not one thing. A recent <a href="https://arxiv.org/pdf/2507.21504">survey on evaluating LLM agents</a> makes the split explicit, and it is the most useful frame I know for this whole topic:</p>
+
+<div class="flow">
+  <span class="flow-step">backbone LLM</span>
+  <span class="flow-arrow">+</span>
+  <span class="flow-step">harness</span>
+  <span class="flow-arrow">=</span>
+  <span class="flow-step">agent</span>
+</div>
+
+<p>The <strong>backbone LLM</strong> is the model's raw capability — its knowledge, its reasoning, what it learned in training. You don't edit it; you select it. The <strong>harness</strong> is everything wrapped around it: the prompting strategy, the tool interfaces, the memory and state, the routing logic, the retrieval, and the evaluation criteria. The survey's core argument is that end-to-end scores <em>conflate</em> these two, and until you decouple them you cannot tell whether a failure came from the model not knowing something or from the harness orchestrating it badly.</p>
+
+<figure>
+  <svg viewBox="0 0 760 320" role="img" aria-label="A backbone LLM at the center, wrapped by four harness layers authored by domain experts: prompts and guidance, tools and actions, memory and state, and evaluation criteria." xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:660px;display:block;margin:0 auto;" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <rect x="1" y="1" width="758" height="318" rx="14" fill="#FDFCF9" stroke="#E4E0D6"/>
+    <!-- harness enclosure -->
+    <rect x="20" y="20" width="720" height="280" rx="12" fill="#FFFFFF" stroke="#E4E0D6" stroke-width="1.5"/>
+    <text x="38" y="46" fill="#9A937F" font-size="11" font-weight="700" letter-spacing="1.5">THE HARNESS — AUTHORED, VERSIONED, EXPERT-OWNED</text>
+    <!-- connectors -->
+    <g stroke="#C9C2B2" stroke-width="1.5">
+      <line x1="224" y1="98" x2="300" y2="142"/>
+      <line x1="536" y1="98" x2="460" y2="142"/>
+      <line x1="224" y1="240" x2="300" y2="186"/>
+      <line x1="536" y1="240" x2="460" y2="186"/>
+    </g>
+    <!-- backbone core -->
+    <rect x="280" y="132" width="200" height="64" rx="10" fill="#FDFCF9" stroke="#232A33" stroke-width="2"/>
+    <text x="380" y="160" text-anchor="middle" fill="#232A33" font-size="15" font-weight="700">BACKBONE LLM</text>
+    <text x="380" y="180" text-anchor="middle" fill="#6B7280" font-size="11">selected, not trained</text>
+    <!-- four harness component chips, one per §4 accent -->
+    <g font-size="12.5" font-weight="700">
+      <rect x="48"  y="76"  width="176" height="44" rx="10" fill="#FFFFFF" stroke="#B7791F" stroke-width="1.5"/>
+      <text x="136" y="103" text-anchor="middle" fill="#B7791F">Prompts &amp; guidance</text>
+      <rect x="536" y="76"  width="176" height="44" rx="10" fill="#FFFFFF" stroke="#2C7A7B" stroke-width="1.5"/>
+      <text x="624" y="103" text-anchor="middle" fill="#2C7A7B">Tools &amp; actions</text>
+      <rect x="48"  y="218" width="176" height="44" rx="10" fill="#FFFFFF" stroke="#6B46A8" stroke-width="1.5"/>
+      <text x="136" y="245" text-anchor="middle" fill="#6B46A8">Memory &amp; state</text>
+      <rect x="536" y="218" width="176" height="44" rx="10" fill="#FFFFFF" stroke="#C05621" stroke-width="1.5"/>
+      <text x="624" y="245" text-anchor="middle" fill="#C05621">Evaluation criteria</text>
+    </g>
+  </svg>
+  <figcaption>The backbone is chosen; the harness around it is written by hand — which is why domain experts live in the outer ring, not the core.</figcaption>
+</figure>
+
+<div class="note-box">
+Here is the punchline that makes domain experts unavoidable: <strong>you cannot fine-tune a manufacturer's definition of "a critical out-of-stock rate" into a model's weights, and you wouldn't want to.</strong> That knowledge is volatile, client-specific, and contested. It belongs in the harness — in prompts, in tool design, in the eval set. And the harness is authored, not trained. Someone has to write down what "correct" means. That someone is a domain expert.
+</div>
+
+<p>So the real question is not <em>whether</em> experts belong in the loop. It is <em>which loop</em>, doing <em>what</em>, and at what cost to everyone involved.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="touchpoints">2. Where expertise enters the system</h2>
+
+<p>Whatever the domain, expert knowledge enters an agent through a small number of recurring doors. The category labels below are generic; the parenthetical examples come from one system I've worked on — <a href="/2026/05/14/insight-agent-plan-execute/">an e-commerce chatbot</a>: a retail-analytics assistant for FMCG brands, embedded in a digital-shelf dashboard, whose users are category managers monitoring how their products sell across online retailers and asking things like "which SKU drove the OOS spike last week?" — but the categories transfer to a legal, clinical, or operations agent unchanged. The four doors are not equal.</p>
+
+<table>
+  <thead>
+    <tr><th>Door (generic)</th><th>What the expert authors</th><th>Half-life</th><th>Who else can do it</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Success criteria</strong></td><td>The ordered reasoning steps or rubric a <em>correct</em> answer must satisfy — not just the question and the answer <em>(e.g. expected trajectories fed to an LLM judge)</em></td><td>Long</td><td>Nobody. This is the purest expert artifact.</td></tr>
+    <tr><td><strong>Behavioral guidance</strong></td><td>Domain heuristics injected before the model acts: thresholds, defaults, what "critical" means <em>(e.g. per-page guidance prompts: "below 70% is critical")</em></td><td>Medium</td><td>An engineer can format it; only an expert knows the values.</td></tr>
+    <tr><td><strong>Domain-optimized paths</strong></td><td>The <em>decision</em> that a frequent request deserves a hand-built, cheaper, more reliable path instead of free-form generation <em>(e.g. shortcut tools that bypass generated SQL)</em></td><td>Long</td><td>Co-authored: expert names the pattern, engineer builds it.</td></tr>
+    <tr><td><strong>Input &amp; intent resolution</strong></td><td>Mapping messy real-world input to canonical meaning: matching misspelled or colloquial names to real entities, normalizing units and date ranges, disambiguating "last week" or "my top brands" <em>(e.g. fuzzy entity matching plus canonicalizing vague requests)</em></td><td>Short</td><td>Partly automatable (fuzzy match, parsers), but the ground truth is domain.</td></tr>
+  </tbody>
+</table>
+
+<p>Notice the "half-life" column. Input mappings churn constantly; a success criterion that encodes <em>how a good analyst reasons about a problem</em> stays true for years. This is not a footnote — it determines how much of an expert's scarce time is worth spending on each door. The highest-leverage expert artifact is usually the one with the longest half-life and the fewest substitutes: the <strong>success criterion</strong>.</p>
+
+<div class="ok-box">
+An eval query that ships with an expert-authored <strong>expected trajectory</strong> turns the LLM-as-judge from a vibes machine into a checkable instrument. The judge is handed the ideal reasoning path and asked whether the actual run followed it. The evaluation is only ever as good as that trajectory — which means the entire quality signal of the system rests on an artifact that <em>only a domain expert can produce.</em> That is real power, and, as we'll see, real burden.
+</div>
+
+<p>One honest caveat to "nobody else can do it." Expected trajectories are one shape of success criterion; the other is the <strong>rubric</strong> — a per-case checklist of criteria a good answer must satisfy, each independently checkable. The largest real-world validation of expert-authored evaluation is rubric-shaped: <a href="https://arxiv.org/abs/2505.08775">HealthBench</a> had 262 physicians write 48,562 conversation-specific criteria, then let a model-based grader check them at scale. And the expert monopoly is softening: a <a href="https://arxiv.org/abs/2604.24710">study across 823 clinical encounters</a> found LLM-generated rubrics reaching clinician-LLM agreement on par with clinician-clinician agreement — at roughly a thousandth of the cost. The lesson is not that experts are replaceable; it's that their highest-leverage role shifts one level up: from <em>writing every criterion</em> to <em>validating and calibrating the machinery that writes them</em>. Which is the amortization argument of Section 5, taken to its logical end. Either way, calibrate before you trust: measure judge-vs-expert agreement on a held-out slice first, and treat the judge's score as meaningful only after that number is known.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="broader">3. Beyond one system: the fuller map</h2>
+
+<p>Those four doors are the ones this particular system leans on. They are not the whole building. Plenty of production agents route domain expertise through doors that a retail-analytics assistant simply never opens — and if you're designing a system in a higher-stakes field, some of these stop being optional. Here is the wider catalogue, with an honest note on whether the example system uses each.</p>
+
+<table>
+  <thead>
+    <tr><th>Touch point</th><th>What the expert decides</th><th>In the example system?</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Guardrail &amp; policy authoring</strong></td><td>What is out of bounds, and the refusal / redaction / disclaimer rules — the domain-specific "you may not say or do this." Increasingly authored as <em>user-defined policies</em> a guardian model enforces, rather than baked into one prompt.</td><td>Partial — there's a human-approval gate for destructive actions, but no expert-authored policy layer.</td></tr>
+    <tr><td><strong>Adversarial probing</strong></td><td>The domain-specific ways the system fails that a generic red-team never imagines — the trick question, the misleading-but-plausible query, the compliance landmine. Experts supply attacks, not just labels.</td><td>No — evaluation is cooperative (real query patterns), not adversarial.</td></tr>
+    <tr><td><strong>Authoritative-source curation</strong></td><td>For retrieval systems: which documents are ground truth, how conflicts between sources resolve, and what the system should refuse to answer from. The corpus <em>is</em> an expert artifact.</td><td>Partial — a docs corpus exists, but source authority and conflict rules aren't expert-curated.</td></tr>
+    <tr><td><strong>Preference / reward data</strong></td><td>When you fine-tune or train a reward model, experts are the preference labelers. Off-the-shelf reward models are known to struggle in specialized domains precisely because they lack this data.</td><td>No — the system selects models, it doesn't train them.</td></tr>
+    <tr><td><strong>Action-affordance design</strong></td><td>Which actions the agent is permitted to take <em>at all</em>, and each action's side-effect risk tier — the difference between "read a number" and "delete a live alert."</td><td>Yes, implicitly — the tool set and its approval gates encode this, though it's rarely framed as an expert decision.</td></tr>
+    <tr><td><strong>Abstention &amp; escalation</strong></td><td>When the agent must say "I don't know," hand off to a human, or refuse to guess. In many fields a confident wrong answer is far costlier than an "I can't answer that."</td><td>No — there's no explicit expert-set abstention threshold.</td></tr>
+    <tr><td><strong>Scenario / simulated-user design</strong></td><td>Realistic evaluation scenarios and simulated users for <em>dynamic</em> eval — expert-designed situations that probe judgment, not just fixed question/answer pairs.</td><td>Partial — eval runs against a demo user experts configure for corner cases (locale, feature flags like report generation, per-KPI/page context, client-specific rules and settings). Parametrized fixtures, not yet an autonomous adaptive user.</td></tr>
+  </tbody>
+</table>
+
+<div class="note-box">
+The point of this table is not that the example system is deficient — it made reasonable choices for a cooperative, low-stakes analytics setting. The point is that <strong>"domain expert in the loop" means radically different work depending on the stakes.</strong> A clinical or legal agent that skipped guardrail authoring, adversarial probing, and abstention thresholds would be negligent; an internal analytics helper that added all three would be over-engineered. Part of the expert's first job is deciding <em>which doors even need to exist.</em>
+</div>
+
+<figure>
+  <svg viewBox="0 0 760 320" role="img" aria-label="Three columns showing which expert touch points the example system opens. Open (one): action-affordance design. Partial (three): guardrail and policy authoring, authoritative-source curation, and scenario or simulated-user design via a configurable demo user. Closed (three): adversarial probing, preference and reward data, and abstention and escalation." xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:720px;display:block;margin:0 auto;" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <rect x="1" y="1" width="758" height="318" rx="14" fill="#FDFCF9" stroke="#E4E0D6"/>
+    <text x="34" y="40" fill="#9A937F" font-size="11" font-weight="700" letter-spacing="1.5">BEYOND ONE SYSTEM — WHICH DOORS ARE OPEN</text>
+
+    <!-- OPEN panel (teal) -->
+    <rect x="16" y="56" width="232" height="236" rx="12" fill="#FFFFFF" stroke="#2C7A7B" stroke-width="1.5"/>
+    <text x="34" y="88" fill="#2C7A7B" font-size="13" font-weight="700">OPEN</text>
+    <circle cx="220" cy="83" r="13" fill="#2C7A7B"/><text x="220" y="87" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="700">1</text>
+    <text x="34" y="106" fill="#6B7280" font-size="10">the system does this</text>
+    <rect x="34" y="129" width="15" height="19" rx="3" fill="#2C7A7B"/><circle cx="45" cy="138" r="1.6" fill="#FFFFFF"/>
+    <text x="58" y="143" fill="#232A33" font-size="11">Action-affordance design</text>
+
+    <!-- PARTIAL panel (amber) -->
+    <rect x="264" y="56" width="232" height="236" rx="12" fill="#FFFFFF" stroke="#B7791F" stroke-width="1.5"/>
+    <text x="282" y="88" fill="#B7791F" font-size="13" font-weight="700">PARTIAL</text>
+    <circle cx="468" cy="83" r="13" fill="#B7791F"/><text x="468" y="87" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="700">3</text>
+    <text x="282" y="106" fill="#6B7280" font-size="10">half-there, not owned</text>
+    <rect x="282" y="129" width="15" height="19" rx="3" fill="#B7791F" fill-opacity="0.3" stroke="#B7791F"/><circle cx="293" cy="138" r="1.6" fill="#B7791F"/>
+    <text x="306" y="143" fill="#232A33" font-size="11">Guardrail &amp; policy authoring</text>
+    <rect x="282" y="161" width="15" height="19" rx="3" fill="#B7791F" fill-opacity="0.3" stroke="#B7791F"/><circle cx="293" cy="170" r="1.6" fill="#B7791F"/>
+    <text x="306" y="175" fill="#232A33" font-size="11">Authoritative-source curation</text>
+    <rect x="282" y="193" width="15" height="19" rx="3" fill="#B7791F" fill-opacity="0.3" stroke="#B7791F"/><circle cx="293" cy="202" r="1.6" fill="#B7791F"/>
+    <text x="306" y="207" fill="#232A33" font-size="11">Scenario / simulated-user</text>
+
+    <!-- CLOSED panel (grey) -->
+    <rect x="512" y="56" width="232" height="236" rx="12" fill="#FFFFFF" stroke="#C9C2B2" stroke-width="1.5"/>
+    <text x="530" y="88" fill="#9A937F" font-size="13" font-weight="700">CLOSED</text>
+    <circle cx="716" cy="83" r="13" fill="#9A937F"/><text x="716" y="87" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="700">3</text>
+    <text x="530" y="106" fill="#6B7280" font-size="10">a system like this skips</text>
+    <g>
+      <rect x="530" y="129" width="15" height="19" rx="3" fill="#FFFFFF" stroke="#C9C2B2"/><circle cx="541" cy="138" r="1.6" fill="#C9C2B2"/>
+      <text x="554" y="143" fill="#6B7280" font-size="11">Adversarial probing</text>
+      <rect x="530" y="161" width="15" height="19" rx="3" fill="#FFFFFF" stroke="#C9C2B2"/><circle cx="541" cy="170" r="1.6" fill="#C9C2B2"/>
+      <text x="554" y="175" fill="#6B7280" font-size="11">Preference / reward data</text>
+      <rect x="530" y="193" width="15" height="19" rx="3" fill="#FFFFFF" stroke="#C9C2B2"/><circle cx="541" cy="202" r="1.6" fill="#C9C2B2"/>
+      <text x="554" y="207" fill="#6B7280" font-size="11">Abstention &amp; escalation</text>
+    </g>
+  </svg>
+  <figcaption>Same doors, different building: which touch points a cooperative analytics agent opens, half-opens, or leaves shut. A higher-stakes domain would shade this very differently.</figcaption>
+</figure>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="allsides">4. All sides: four viewpoints on one loop</h2>
+
+<p>"Expert in the loop" gets drawn as a friendly circle with a person in it. The reality is four parties with different incentives, and the friction between them <em>is</em> the topic. A 12-week <a href="https://arxiv.org/abs/2602.14357">ethnographic study of a team building a pedagogical chatbot</a> found that the hard parts were almost never technical — they were about motivation, trust, and who owns knowledge. Here are the four seats at the table.</p>
+
+<figure>
+  <svg viewBox="0 0 760 480" role="img" aria-label="Authority over 'correct' plotted against coverage. The domain expert sits top-left: high authority, low coverage — they hold the definition of good but can't scale it. The engineer sits center as the pipe that turns intent into an artifact. The LLM-as-judge sits lower-right: high coverage, no authority, faithful but not wise. Product sits lower-left, funding and owning the flow. A dashed path runs expert to engineer to judge (author, then execute at scale), and a return arrow carries calibration from the judge back to the expert." xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:720px;display:block;margin:0 auto;" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <defs>
+      <marker id="flowArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#9A937F"/>
+      </marker>
+    </defs>
+
+    <rect x="1" y="1" width="758" height="478" rx="14" fill="#FDFCF9" stroke="#E4E0D6"/>
+
+    <!-- plot area -->
+    <rect x="120" y="50" width="520" height="330" fill="#FFFFFF" stroke="#E4E0D6"/>
+    <line x1="380" y1="50" x2="380" y2="380" stroke="#EDEAE0" stroke-width="1.5"/>
+    <line x1="120" y1="215" x2="640" y2="215" stroke="#EDEAE0" stroke-width="1.5"/>
+
+    <!-- axes -->
+    <line x1="120" y1="380" x2="640" y2="380" stroke="#232A33" stroke-width="1.5"/>
+    <line x1="120" y1="380" x2="120" y2="50" stroke="#232A33" stroke-width="1.5"/>
+    <text x="380" y="410" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="1" fill="#232A33">COVERAGE — runs their judgment touches per hour →</text>
+    <text x="86" y="215" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="1" fill="#232A33" transform="rotate(-90 86 215)">AUTHORITY OVER "CORRECT" →</text>
+
+    <!-- quadrant hints -->
+    <text x="136" y="70" font-size="10.5" font-style="italic" font-family="Georgia, serif" fill="#C9C2B2">defines, can't scale</text>
+    <text x="624" y="70" text-anchor="end" font-size="10.5" font-style="italic" font-family="Georgia, serif" fill="#C9C2B2">the goal: defined AND scaled</text>
+    <text x="624" y="368" text-anchor="end" font-size="10.5" font-style="italic" font-family="Georgia, serif" fill="#C9C2B2">scales, doesn't define</text>
+
+    <!-- dependency flow: expert -> engineer -> judge -->
+    <path d="M 232,108 C 300,130 330,180 356,232" fill="none" stroke="#9A937F" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#flowArr)"/>
+    <path d="M 400,258 C 450,290 490,308 528,320" fill="none" stroke="#9A937F" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#flowArr)"/>
+    <text x="270" y="176" font-size="10" fill="#9A937F" font-style="italic" font-family="Georgia, serif">authors artifact</text>
+    <text x="452" y="278" font-size="10" fill="#9A937F" font-style="italic" font-family="Georgia, serif">executes at scale</text>
+
+    <!-- calibration return arrow: judge -> expert -->
+    <path d="M 560,306 C 560,150 320,80 236,92" fill="none" stroke="#6B46A8" stroke-width="1.2" stroke-dasharray="2 4" marker-end="url(#flowArr)"/>
+    <text x="470" y="120" font-size="10" fill="#6B46A8" font-style="italic" font-family="Georgia, serif">calibration: agreement measured back</text>
+
+    <!-- the four sides -->
+    <!-- expert: high authority, low coverage -->
+    <circle cx="208" cy="100" r="22" fill="#B7791F"/>
+    <text x="208" y="105" text-anchor="middle" font-size="13" font-weight="700" fill="#FFFFFF">1</text>
+    <text x="208" y="140" text-anchor="middle" font-size="12" font-weight="700" fill="#B7791F">domain expert</text>
+    <text x="208" y="155" text-anchor="middle" font-size="10.5" fill="#6B7280">holds the definition of good</text>
+
+    <!-- engineer: mid authority, mid coverage -->
+    <circle cx="378" cy="252" r="22" fill="#2C7A7B"/>
+    <text x="378" y="257" text-anchor="middle" font-size="13" font-weight="700" fill="#FFFFFF">2</text>
+    <text x="378" y="292" text-anchor="middle" font-size="12" font-weight="700" fill="#2C7A7B">engineer</text>
+    <text x="378" y="307" text-anchor="middle" font-size="10.5" fill="#6B7280">the pipe — turns intent into artifact</text>
+
+    <!-- judge: no authority, high coverage -->
+    <circle cx="552" cy="326" r="22" fill="#6B46A8"/>
+    <text x="552" y="331" text-anchor="middle" font-size="13" font-weight="700" fill="#FFFFFF">3</text>
+    <text x="552" y="288" text-anchor="middle" font-size="12" font-weight="700" fill="#6B46A8">LLM-as-judge</text>
+    <text x="552" y="303" text-anchor="middle" font-size="10.5" fill="#6B7280">faithful, not wise</text>
+
+    <!-- product: mid-low authority, low coverage -->
+    <circle cx="182" cy="300" r="22" fill="#C05621"/>
+    <text x="182" y="305" text-anchor="middle" font-size="13" font-weight="700" fill="#FFFFFF">4</text>
+    <text x="182" y="340" text-anchor="middle" font-size="12" font-weight="700" fill="#C05621">product / business</text>
+    <text x="182" y="355" text-anchor="middle" font-size="10.5" fill="#6B7280">funds and owns the flow</text>
+
+    <!-- caption -->
+    <text x="380" y="442" text-anchor="middle" font-size="11.5" fill="#232A33">No seat reaches the top-right alone. The loop exists to move the expert's definition</text>
+    <text x="380" y="458" text-anchor="middle" font-size="11.5" fill="#232A33">rightward along the dashed path — and the purple return arrow is the calibration check.</text>
+  </svg>
+</figure>
+
+<h3>Side 1 — The domain expert</h3>
+<ul>
+  <li><strong>What they want:</strong> the system to stop being confidently wrong about their field. They can spot a bad answer in half a second and struggle to explain why in a way a machine can consume.</li>
+  <li><strong>What it costs them:</strong> this is not their day job. The ethnographic study flags <strong>expert motivation and trust</strong> as a first-order challenge — experts disengage when their input vanishes into a black box and nothing visibly improves.</li>
+  <li><strong>The trap:</strong> "just write down what good looks like" sounds easy and is genuinely hard. Tacit expertise resists being turned into an ordered checklist. The first three trajectories are exhausting; the expert's instinct is richer than any list they can produce on demand.</li>
+</ul>
+
+<h3>Side 2 — The engineer</h3>
+<ul>
+  <li><strong>What they want:</strong> expert knowledge in a form the harness can execute — a JSON file, a prompt tag, a tool schema. Structured, versioned, testable.</li>
+  <li><strong>What it costs them:</strong> building the <em>participatory scaffolding</em> — templates, review UIs, deploy paths — so a non-engineer can contribute without filing a PR. The study calls out <strong>participatory design barriers</strong> as a recurring failure: teams underinvest in the machinery that lets experts actually participate.</li>
+  <li><strong>The trap:</strong> the engineer becomes a bottleneck and a translator, subtly reshaping expert intent into whatever is easy to code. Every hop from "what the expert meant" to "what the harness does" leaks meaning.</li>
+</ul>
+
+<h3>Side 3 — The system itself (LLM-as-judge)</h3>
+<ul>
+  <li><strong>What it "wants":</strong> unambiguous criteria. It will happily score a response 0.91 against a trajectory that encodes a subtly wrong idea of quality. The judge is faithful, not wise.</li>
+  <li><strong>What it costs everyone:</strong> the machine <em>launders the expert's assumptions into numbers</em>. A bias in the trajectory becomes a metric, a metric becomes a target, and now the whole system optimizes toward one expert's opinion — dressed up as objective measurement.</li>
+  <li><strong>The upside:</strong> done well, the survey notes, humans and judges cover different ground — the judge scales across hundreds of retailers and thousands of brands while the expert supplies the <em>qualitative</em> dimensions (tool appropriateness, reasoning coherence, task alignment) that automated metrics miss. The <a href="https://arxiv.org/pdf/2602.06486">JADE line of work</a> on expert-grounded dynamic evaluation pushes exactly this: keep the expert's judgment in the scoring loop rather than freezing it into a static rubric.</li>
+</ul>
+
+<h3>Side 4 — The product / business</h3>
+<ul>
+  <li><strong>What they want:</strong> the system to improve <em>without</em> an engineering sprint per fix. If a KPI owner can update a guidance prompt and see quality rise on the next request, the improvement loop is decoupled from the release cycle. That is the whole prize.</li>
+  <li><strong>What it costs them:</strong> owning the process. "Who are the right experts, and is that ownership real or aspirational?" is the question that quietly sinks these programs. Expert time is a budget line, and nobody put it in the plan.</li>
+  <li><strong>The tension:</strong> the business wants autonomy for experts <em>and</em> guardrails against a well-meaning expert shipping a bad prompt to prod. Those pull in opposite directions.</li>
+</ul>
+
+<div class="warn-box">
+The single most under-discussed conflict: <strong>the expert and the judge can both be wrong in the same direction.</strong> If the expert's trajectory reflects a common-but-flawed analytical habit, the eval will reward the agent for reproducing it, production feedback may even confirm it (users share the habit), and every signal in your quality loop agrees — while the system is quietly wrong. Consensus is not correctness. This is the failure mode that no amount of harness engineering catches, because it lives in the ground truth itself.
+</div>
+
+<figure>
+  <svg viewBox="0 0 760 320" role="img" aria-label="A vector plot. A dashed arrow points up and to the right toward a star marked 'ground truth'. Three solid arrows — expert trajectory, judge score, and user feedback — all point in the same wrong direction, clustered away from ground truth, with a note that every signal agrees. Beside it: if the expert's trajectory encodes a common-but-flawed habit, the judge rewards it and users who share the habit confirm it, so the whole quality loop agrees with itself by construction while the system is quietly wrong. Consensus is not correctness." xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:720px;display:block;margin:0 auto;" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <defs>
+      <marker id="mAmber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#B7791F"/>
+      </marker>
+      <marker id="mViolet" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#6B46A8"/>
+      </marker>
+      <marker id="mTeal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#2C7A7B"/>
+      </marker>
+      <marker id="mInk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#232A33"/>
+      </marker>
+    </defs>
+
+    <rect x="1" y="1" width="758" height="318" rx="14" fill="#FDFCF9" stroke="#E4E0D6"/>
+
+    <!-- ===== left: vector plot ===== -->
+    <!-- origin -->
+    <circle cx="150" cy="235" r="5" fill="#232A33"/>
+    <text x="150" y="258" text-anchor="middle" font-size="11" fill="#6B7280">the system</text>
+
+    <!-- ground truth: dashed, up-right -->
+    <line x1="150" y1="235" x2="248" y2="72" stroke="#232A33" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#mInk)"/>
+    <path d="M262,58 l4.2,8.5 9.4,1.4 -6.8,6.6 1.6,9.3 -8.4,-4.4 -8.4,4.4 1.6,-9.3 -6.8,-6.6 9.4,-1.4 z" fill="#FDFCF9" stroke="#232A33" stroke-width="1.5"/>
+    <text x="262" y="42" text-anchor="middle" font-size="11.5" font-weight="700" fill="#232A33">ground truth</text>
+
+    <!-- the agreeing cluster: three arrows, same wrong direction -->
+    <line x1="150" y1="235" x2="330" y2="185" stroke="#B7791F" stroke-width="2.5" marker-end="url(#mAmber)"/>
+    <line x1="150" y1="235" x2="333" y2="212" stroke="#6B46A8" stroke-width="2.5" marker-end="url(#mViolet)"/>
+    <line x1="150" y1="235" x2="328" y2="240" stroke="#2C7A7B" stroke-width="2.5" marker-end="url(#mTeal)"/>
+
+    <text x="342" y="183" font-size="11.5" font-weight="700" fill="#B7791F">expert trajectory</text>
+    <text x="345" y="214" font-size="11.5" font-weight="700" fill="#6B46A8">judge score</text>
+    <text x="340" y="246" font-size="11.5" font-weight="700" fill="#2C7A7B">user feedback</text>
+
+    <!-- agreement arc around the cluster -->
+    <path d="M 318,168 A 96,96 0 0 1 318,258" fill="none" stroke="#C9C2B2" stroke-width="1" stroke-dasharray="2 4"/>
+    <text x="352" y="278" font-size="10.5" fill="#9A937F" font-style="italic" font-family="Georgia, serif">every signal agrees</text>
+
+    <!-- ===== right: text block ===== -->
+    <line x1="500" y1="56" x2="500" y2="264" stroke="#E4E0D6" stroke-width="1.5"/>
+    <text x="524" y="82" font-size="11" font-weight="700" letter-spacing="1.5" fill="#9A937F">THE UNDER-DISCUSSED FAILURE</text>
+
+    <text x="524" y="112" font-size="13.5" fill="#232A33">If the expert's trajectory encodes a</text>
+    <text x="524" y="131" font-size="13.5" fill="#232A33">common-but-flawed habit, the judge</text>
+    <text x="524" y="150" font-size="13.5" fill="#232A33">rewards it and users — who share the</text>
+    <text x="524" y="169" font-size="13.5" fill="#232A33">habit — confirm it. The whole quality</text>
+    <text x="524" y="188" font-size="13.5" fill="#232A33">loop agrees with itself by construction,</text>
+    <text x="524" y="207" font-size="13.5" fill="#232A33">while the system is quietly wrong.</text>
+
+    <text x="524" y="245" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="17" fill="#232A33">Consensus is not correctness.</text>
+  </svg>
+</figure>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="spectrum">5. The spectrum of involvement</h2>
+
+<p>"Expert in the loop" is not one arrangement — it's a spectrum of increasing leverage and increasing burden. The <a href="https://arxiv.org/abs/2602.14357">ethnographic study</a> observed teams sliding along it as expert availability shifted, and named the two endpoints worth aiming for: <em>co-developed</em> evaluation criteria and <em>hybrid</em> evaluation that blends expert, developer, and model judgment.</p>
+
+<table>
+  <thead>
+    <tr><th>Mode</th><th>Expert role</th><th>Leverage</th><th>Burden on expert</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Annotator</td><td>Labels outputs good/bad after the fact</td><td>Low — reactive, per-item</td><td>Low but endless</td></tr>
+    <tr><td>Author</td><td>Writes guidance prompts / thresholds directly</td><td>Medium — shapes behavior</td><td>Medium</td></tr>
+    <tr><td>Judge-designer</td><td>Authors expected trajectories the LLM-judge scores against</td><td>High — defines "correct" at scale</td><td>High, front-loaded</td></tr>
+    <tr><td>Co-developer</td><td>Builds the eval criteria <em>with</em> engineers, iterating</td><td>High — shared ownership</td><td>High, ongoing</td></tr>
+    <tr><td>Hybrid loop</td><td>Expert + developer + model each score; disagreements surface</td><td>Highest — catches all three's blind spots</td><td>Distributed, sustainable</td></tr>
+  </tbody>
+</table>
+
+<figure>
+  <svg viewBox="0 0 760 400" role="img" aria-label="A rising staircase of five modes of expert involvement, each step taller than the last to show increasing leverage: annotator, author, judge-designer, co-developer, and hybrid loop. A dashed line separates the low per-item modes on the left from the amortized, compounding modes on the right. The message: climb toward amortized effort." xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:720px;display:block;margin:0 auto;" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <defs>
+      <marker id="sArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#9A937F"/>
+      </marker>
+    </defs>
+    <rect x="1" y="1" width="758" height="398" rx="14" fill="#FDFCF9" stroke="#E4E0D6"/>
+    <text x="34" y="34" fill="#9A937F" font-size="11" font-weight="700" letter-spacing="1.5">THE SPECTRUM — CLIMB TOWARD AMORTIZED EFFORT</text>
+
+    <!-- axes -->
+    <line x1="40" y1="340" x2="700" y2="340" stroke="#232A33" stroke-width="1.5"/>
+    <line x1="40" y1="96" x2="40" y2="340" stroke="#232A33" stroke-width="1.5"/>
+    <text x="22" y="220" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="1" fill="#232A33" transform="rotate(-90 22 220)">LEVERAGE →</text>
+
+    <!-- climb guide -->
+    <line x1="60" y1="330" x2="672" y2="126" stroke="#C9C2B2" stroke-width="1.5" stroke-dasharray="5 5" marker-end="url(#sArr)"/>
+
+    <!-- amortization divider -->
+    <line x1="298" y1="104" x2="298" y2="340" stroke="#C9C2B2" stroke-width="1.2" stroke-dasharray="3 4"/>
+    <text x="298" y="92" text-anchor="middle" font-size="10.5" font-style="italic" font-family="Georgia, serif" fill="#9A937F">← per-item  |  amortized →</text>
+
+    <!-- steps -->
+    <rect x="44"  y="300" width="124" height="40"  rx="6" fill="#9A937F" fill-opacity="0.12" stroke="#9A937F" stroke-width="1.5"/>
+    <rect x="172" y="262" width="124" height="78"  rx="6" fill="#B7791F" fill-opacity="0.12" stroke="#B7791F" stroke-width="1.5"/>
+    <rect x="300" y="214" width="124" height="126" rx="6" fill="#C05621" fill-opacity="0.12" stroke="#C05621" stroke-width="1.5"/>
+    <rect x="428" y="166" width="124" height="174" rx="6" fill="#2C7A7B" fill-opacity="0.12" stroke="#2C7A7B" stroke-width="1.5"/>
+    <rect x="556" y="118" width="124" height="222" rx="6" fill="#6B46A8" fill-opacity="0.12" stroke="#6B46A8" stroke-width="1.5"/>
+
+    <!-- numbered pips -->
+    <circle cx="106" cy="324" r="14" fill="#9A937F"/><text x="106" y="328" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="700">1</text>
+    <circle cx="234" cy="286" r="14" fill="#B7791F"/><text x="234" y="290" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="700">2</text>
+    <circle cx="362" cy="238" r="14" fill="#C05621"/><text x="362" y="242" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="700">3</text>
+    <circle cx="490" cy="190" r="14" fill="#2C7A7B"/><text x="490" y="194" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="700">4</text>
+    <circle cx="618" cy="142" r="14" fill="#6B46A8"/><text x="618" y="146" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="700">5</text>
+
+    <!-- mode names above steps -->
+    <text x="106" y="290" text-anchor="middle" font-size="12" font-weight="700" fill="#9A937F">Annotator</text>
+    <text x="234" y="252" text-anchor="middle" font-size="12" font-weight="700" fill="#B7791F">Author</text>
+    <text x="362" y="204" text-anchor="middle" font-size="12" font-weight="700" fill="#C05621">Judge-designer</text>
+    <text x="490" y="156" text-anchor="middle" font-size="12" font-weight="700" fill="#2C7A7B">Co-developer</text>
+    <text x="618" y="108" text-anchor="middle" font-size="12" font-weight="700" fill="#6B46A8">Hybrid loop</text>
+
+    <!-- role tags below baseline -->
+    <g font-size="9.5" fill="#6B7280">
+      <text x="106" y="360" text-anchor="middle">labels, reactive</text>
+      <text x="234" y="360" text-anchor="middle">writes guidance</text>
+      <text x="362" y="360" text-anchor="middle">authors trajectories</text>
+      <text x="490" y="360" text-anchor="middle">co-owns eval</text>
+      <text x="618" y="360" text-anchor="middle">triangulates signals</text>
+    </g>
+  </svg>
+  <figcaption>Each rung amortizes the expert's effort a little more — one good success criterion scores thousands of runs. Annotator feels busy and compounds nothing; the climb is the whole point.</figcaption>
+</figure>
+
+<p>The move that pays off is climbing from <em>annotator</em> (where the expert is a bottomless well of labels and burns out) to <em>judge-designer</em> and <em>hybrid</em> (where the expert's effort is amortized — one good trajectory scores thousands of runs). The annotator mode feels productive and is a trap; it never compounds.</p>
+
+<p>Adjacent research on <a href="https://arxiv.org/html/2512.04111">benchmarking the actual value of human-in-the-loop collaboration</a> and <a href="https://arxiv.org/abs/2411.12924">human-in-the-loop software agents</a> lands on the same lesson from the coding-agent world: the win is not "human reviews everything" but "human is inserted at the few steps where their judgment is decisive." Ubiquitous oversight doesn't scale; <em>targeted</em> oversight does.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="failures">6. Failure modes nobody advertises</h2>
+
+<p>Every writeup celebrates the loop closing. Here are the ways it quietly doesn't.</p>
+
+<ul>
+  <li><strong>Expert scarcity dressed as a data problem.</strong> The real constraint is rarely the pipeline; it's that the two people who understand the domain have day jobs. The study documented teams inventing <em>workaround data collection</em> and <em>augmentation</em> strategies precisely because expert time ran out — useful, but a signal that the loop is under-resourced, not that it's solved.</li>
+  <li><strong>Overfitting to one expert's taste.</strong> An eval set is a portrait of whoever wrote it. Two senior analysts routinely disagree about what a good OOS answer emphasizes. If your trajectories come from one person, you have encoded their preferences as ground truth — and you'll never see it, because your metrics agree with your rubric by construction.</li>
+  <li><strong>Stale guidance.</strong> A guidance prompt authored when a threshold was 70% keeps enforcing 70% long after the business moved to 65%. Guidance has a half-life; without a review cadence it rots into confidently-outdated advice — worse than no guidance, because it looks authoritative.</li>
+  <li><strong>Knowledge ownership disputes.</strong> The study names this directly: <em>who owns the expert knowledge once it's in the system?</em> When the expert leaves, does their trajectory set stay? Is it "the company's eval" or "Maria's opinions"? Unowned artifacts decay.</li>
+  <li><strong>Consent and attribution.</strong> Experts contribute knowledge that becomes a durable asset. The study's recommendation for <strong>transparent consent frameworks</strong> is not legal boilerplate — it's what keeps experts willing to contribute a second time.</li>
+  <li><strong>The evolving-role blindspot.</strong> An expert's job in month one (bootstrap the eval set) is not their job in month six (adjudicate the disagreements the hybrid loop surfaces). Teams that treat the role as static lose the expert right when their input gets most valuable.</li>
+</ul>
+
+<div class="bad-box">
+Meta-failure: <strong>treating the expert loop as a phase instead of a fixture.</strong> "We did the expert workshop" is the tell. The domain moves, the client base changes, the model gets swapped — and a quality definition frozen at launch is a liability accruing interest. The loop is infrastructure, not a milestone.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="operating">7. A durable operating model</h2>
+
+<p>Pulling the sides together, here is what a loop that actually survives contact with reality looks like. None of this is exotic; the discipline is in keeping it running.</p>
+
+<figure>
+  <svg viewBox="0 0 760 400" role="img" aria-label="A five-stage cycle. Expert authors, then versioned artifact, then harness applies, then judge and users score, then expert reviews, and back to expert authors. The loop improves quality without a code deploy." xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-width:700px;display:block;margin:0 auto;" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <defs>
+      <marker id="cyc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#9A937F"/>
+      </marker>
+    </defs>
+    <rect x="1" y="1" width="758" height="398" rx="14" fill="#FDFCF9" stroke="#E4E0D6"/>
+
+    <!-- cycle arrows -->
+    <g fill="none" stroke="#9A937F" stroke-width="1.8">
+      <line x1="454" y1="66"  x2="546" y2="140" marker-end="url(#cyc)"/>
+      <line x1="602" y1="176" x2="545" y2="299" marker-end="url(#cyc)"/>
+      <line x1="451" y1="321" x2="309" y2="321" marker-end="url(#cyc)"/>
+      <line x1="205" y1="301" x2="158" y2="176" marker-end="url(#cyc)"/>
+      <line x1="172" y1="136" x2="304" y2="62"  marker-end="url(#cyc)"/>
+    </g>
+
+    <!-- center label -->
+    <text x="380" y="192" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="1.5" fill="#9A937F">THE DURABLE LOOP</text>
+    <text x="380" y="214" text-anchor="middle" font-size="11" font-style="italic" font-family="Georgia, serif" fill="#6B7280">improves quality without a code deploy</text>
+
+    <!-- nodes -->
+    <g font-size="12" font-weight="700">
+      <rect x="306" y="30"  width="148" height="40" rx="10" fill="#FFFFFF" stroke="#B7791F" stroke-width="1.5"/>
+      <text x="380" y="55"  text-anchor="middle" fill="#B7791F">1 · expert authors</text>
+      <rect x="544" y="134" width="148" height="40" rx="10" fill="#FFFFFF" stroke="#232A33" stroke-width="1.5"/>
+      <text x="618" y="159" text-anchor="middle" fill="#232A33">2 · versioned artifact</text>
+      <rect x="453" y="301" width="148" height="40" rx="10" fill="#FFFFFF" stroke="#2C7A7B" stroke-width="1.5"/>
+      <text x="527" y="326" text-anchor="middle" fill="#2C7A7B">3 · harness applies</text>
+      <rect x="159" y="301" width="148" height="40" rx="10" fill="#FFFFFF" stroke="#6B46A8" stroke-width="1.5"/>
+      <text x="233" y="326" text-anchor="middle" fill="#6B46A8">4 · judge + users score</text>
+      <rect x="68"  y="134" width="148" height="40" rx="10" fill="#FFFFFF" stroke="#C05621" stroke-width="1.5"/>
+      <text x="142" y="159" text-anchor="middle" fill="#C05621">5 · expert reviews</text>
+    </g>
+
+    <text x="380" y="384" text-anchor="middle" font-size="10.5" font-style="italic" font-family="Georgia, serif" fill="#9A937F">the return arrow (5 → 1) is what makes it a loop, not a pipeline</text>
+  </svg>
+  <figcaption>The loop that survives contact with reality: an expert-authored artifact flows through the harness, gets scored by judge and users, and returns to the expert to review — no engineering sprint required.</figcaption>
+</figure>
+
+<ol>
+  <li><strong>Make the artifact the unit of work, and version it.</strong> Guidance prompts live in a registry with tags and rollback (dev → staging → prod), decoupled from code deploys. Trajectories live in reviewed JSON. If expert knowledge isn't a diffable, ownable artifact, it isn't in the loop — it's in someone's head.</li>
+  <li><strong>Climb the spectrum deliberately.</strong> Start experts as annotators only long enough to bootstrap; move them to trajectory-authoring fast, because that's the effort that compounds. Track the ratio of amortized work (trajectories) to per-item work (labels) — if it's not shifting toward the former, the loop is burning the expert.</li>
+  <li><strong>Close the visible feedback gap.</strong> The number-one killer of expert motivation is contributing into a void. When an expert ships a guidance prompt, the trace on that KPI page should show whether quality moved. Show them the delta. That's what earns the next contribution.</li>
+  <li><strong>Build the hybrid triangulation for real.</strong> Expert judgment, LLM-judge scores, and production user feedback should be three <em>independent</em> signals. When they disagree, that disagreement is your highest-value data — it's the only thing that catches the "expert and judge wrong together" failure. Route disagreements to a human, on purpose — and calibrate the judge against the expert on a held-out slice before the triangle means anything.</li>
+  <li><strong>Schedule the rot check.</strong> Guidance and trajectories get a review cadence, an owner, and an expiry prompt. "Is this threshold still right?" is a calendar event, not a hope.</li>
+  <li><strong>Resource it honestly.</strong> Put expert hours in the plan as a line item. A loop that depends on borrowed goodwill runs exactly until the expert gets busy.</li>
+</ol>
+
+<div class="note-box">
+The thing worth internalizing: the harness is the only layer where you can encode "what this specific business means by correct" — and that layer is authored by hand. So the quality ceiling of the whole system is set not by the model you picked, but by how well you run the collaboration with the people who hold the definition of good. That is a people-and-process problem wearing an engineering costume.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="reading">8. Where this comes from — further reading</h2>
+
+<p>This post blends a concrete system with the current literature. The research worth reading directly:</p>
+
+<ul>
+  <li><a href="https://arxiv.org/abs/2602.14357">Key Considerations for Domain Expert Involvement in LLM Design and Evaluation</a> — the 12-week ethnographic study behind most of Section 3 and Section 5. If you read one, read this: it names the motivation, trust, participation, and ownership problems out loud.</li>
+  <li><a href="https://arxiv.org/pdf/2507.21504">Evaluation and Benchmarking of LLM Agents: A Survey</a> — the backbone-LLM-vs-harness decoupling that frames Section 1.</li>
+  <li><a href="https://arxiv.org/html/2503.16416">A Survey on Evaluation of LLM-based Agents</a> — broader map of how agent evaluation is done and where humans fit.</li>
+  <li><a href="https://arxiv.org/pdf/2602.06486">JADE: Expert-Grounded Dynamic Evaluation for Open-Ended Professional Tasks</a> — keeping expert judgment live in scoring rather than frozen in a rubric.</li>
+  <li><a href="https://arxiv.org/html/2512.04111">CentaurEval: Benchmarking Human-in-the-Loop Value in Agentic Coding</a> — when human involvement actually adds value versus theatre.</li>
+  <li><a href="https://arxiv.org/abs/2505.08775">HealthBench</a> — 262 physicians, 48,562 rubric criteria, model-graded at scale; the reference case for expert-authored rubrics as the success-criteria artifact.</li>
+  <li><a href="https://arxiv.org/abs/2604.24710">Case-Specific Rubrics for Clinical AI Evaluation</a> — judge calibration with numbers: LLM-clinician agreement measured against clinician-clinician agreement across 823 encounters.</li>
+  <li><a href="https://arxiv.org/abs/2411.12924">Human-In-the-Loop Software Development Agents</a> (Atlassian's HULA) — targeted human insertion at decisive steps, from the coding-agent side.</li>
+</ul>
+
+<p>For the broader touch points in Section 3 — the doors the example system doesn't open:</p>
+
+<ul>
+  <li><a href="https://arxiv.org/pdf/2509.02563">DynaGuard: A Dynamic Guardian Model With User-Defined Policies</a> — guardrails as expert-authored policies enforced at runtime, rather than rules frozen into a prompt.</li>
+  <li><a href="https://arxiv.org/pdf/2503.01742">Building Safe GenAI Applications: An End-to-End Overview of Red Teaming</a> — where domain-specific adversarial probing fits, and why "no attack we tried worked" is not "safe."</li>
+  <li><a href="https://arxiv.org/pdf/2510.15782">Evidence-Driven Corpus Curation for RAG</a> and <a href="https://arxiv.org/pdf/2412.13746">RAG-RewardBench</a> — authoritative-source curation and appropriate abstention as expert-shaped inputs.</li>
+  <li><a href="https://arxiv.org/pdf/2503.02948">ExpertGenQA</a> — expert-grounded scenario and question generation for evaluation in specialized domains.</li>
+</ul>
+
+<p>The system references — the multi-agent harness, the MCP action surface, the MLflow prompt registry, and the eval benchmark — are from the <a href="/2026/05/14/insight-agent-plan-execute/">Insight Agent post</a> and the broader ecosystem writeup. Same machine, viewed here through the one lens that isn't code: the people who decide what it's for.</p>
+
+</div>
